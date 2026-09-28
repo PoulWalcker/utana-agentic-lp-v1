@@ -1,0 +1,2 @@
+.shape-switch{position:relative;inset:auto;display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px 6%;background:#101e32;border-bottom:1px solid #7891b144;z-index:5}.shape-switch span{font-size:10px;letter-spacing:2px;margin-right:12px;color:#a9bed9}.shape-switch a{font-size:12px;padding:7px 14px;border:1px solid #829cb355;border-radius:25px}.shape-switch a[aria-current]{background:#dce7f8;color:#0b1323}
+@media(max-width:760px){.shape-switch{position:relative;display:flex;inset:auto;padding:12px 6%}.shape-switch span{width:100%}}
