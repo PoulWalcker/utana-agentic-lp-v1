@@ -20,10 +20,13 @@ node_modules/
 __pycache__/
 *.py[cod]
 .cache/
+.codegraph/
 *.log
 *.zip
 playwright-report/
 test-results/
+public/
+.public.*/
 
 # Local editorial research and portrait editing notes
 TEAM-SOURCES.md

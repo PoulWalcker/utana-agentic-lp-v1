@@ -2,15 +2,19 @@
 
 Responsive static website for Utana, with a navy and silver design, automation use cases, articles, team profiles, and a pilot enquiry form.
 
-## Run locally
+## Build and preview the production site
 
 From this directory:
 
 ```sh
-python3 -m http.server 8766
+./scripts/build-public.sh
+python3 -m http.server 8766 --directory public
 ```
 
-Open http://localhost:8766. No build step or package installation is required.
+Open http://localhost:8766. The build uses `public-files.txt` as an explicit
+allowlist, recreates `public/`, and verifies that every local page and asset
+reference resolves inside that directory. It requires only POSIX shell tools and
+Python 3; no packages need to be installed.
 
 ## Website files
 
@@ -25,7 +29,11 @@ Open http://localhost:8766. No build step or package installation is required.
 
 ## Deploy
 
-Serve this directory from any static web host, with `index.html` at the site root. Include the CSS, JavaScript, articles, use-case pages, and assets. Preview pages are optional for deployment.
+Run `./scripts/build-public.sh`, then deploy or serve only the generated
+`public/` directory, with `public/index.html` at the site root. Do not configure
+the web server's document root to the repository root. Preview pages, repository
+metadata, unused assets, and build tooling are intentionally absent from the
+artifact.
 
 ## Contact form
 

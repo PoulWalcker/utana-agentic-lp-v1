@@ -1,0 +1,42 @@
+# Canonical top-level pages
+index.html
+privacy.html
+use-cases.html
+
+# Runtime assets
+favicon.svg
+styles.css
+navy.css
+use-cases.css
+site.js
+
+# Canonical blog articles
+blog/business-automation.html
+blog/first-workflow.html
+blog/human-judgment.html
+
+# Substantive use-case articles linked from use-cases.html
+use-cases/campaign-coordination.html
+use-cases/clinic-administration.html
+use-cases/clinic-journey.html
+use-cases/department-reporting.html
+use-cases/document-operations.html
+use-cases/employee-requests.html
+use-cases/enquiry-to-delivery.html
+use-cases/marketing-production.html
+use-cases/procurement-coordination.html
+use-cases/recruitment-coordination.html
+use-cases/restaurant-locations.html
+use-cases/restaurant-operations.html
+use-cases/sales-enquiries.html
+use-cases/sales-proposals.html
+use-cases/support-investigation.html
+use-cases/uae-real-estate.html
+
+# Images used by canonical pages
+assets/team/femina-studio.png
+assets/team/hajer-studio.png
+assets/team/harishma-studio.png
+assets/team/pavel-studio.png
+assets/team/portrait-1.png
+assets/team/portrait-3.jpeg
