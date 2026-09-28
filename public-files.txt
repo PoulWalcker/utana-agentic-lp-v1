@@ -1,3 +1,7 @@
+# Production artifact allowlist. Each entry is a path relative to public/.
+# build-public.sh resolves HTML from src/pages/, CSS from src/styles/,
+# JavaScript from src/js/, and all other files from static/.
+
 # Canonical top-level pages
 index.html
 privacy.html

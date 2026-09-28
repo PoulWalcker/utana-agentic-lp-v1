@@ -27,7 +27,12 @@ while IFS= read -r relative_path || [ -n "$relative_path" ]; do
       ;;
   esac
 
-  source_file="$repository_root/$relative_path"
+  case "$relative_path" in
+    *.html) source_file="$repository_root/src/pages/$relative_path" ;;
+    *.css) source_file="$repository_root/src/styles/$relative_path" ;;
+    *.js) source_file="$repository_root/src/js/$relative_path" ;;
+    *) source_file="$repository_root/static/$relative_path" ;;
+  esac
   destination="$staging/$relative_path"
 
   if [ ! -f "$source_file" ]; then

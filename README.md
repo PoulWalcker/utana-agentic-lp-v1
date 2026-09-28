@@ -12,11 +12,12 @@ python3 -m http.server 8766 --directory public
 ```
 
 Open http://localhost:8766. The build uses `public-files.txt` as an explicit
-allowlist, recreates `public/`, and verifies that every local page and asset
-reference and fragment resolves inside that directory. It also checks basic
-HTML structure, unique IDs, canonical, social, favicon, robots, and sitemap
-metadata. It requires only POSIX shell tools and Python 3; no packages need to
-be installed.
+artifact-path allowlist, resolves each entry from `src/pages/`, `src/styles/`,
+`src/js/`, or `static/`, and recreates `public/` with the site's public URL
+layout. It verifies that every local page and asset reference and fragment
+resolves inside that directory. It also checks basic HTML structure, unique
+IDs, canonical, social, favicon, robots, and sitemap metadata. It requires only
+POSIX shell tools and Python 3; no packages need to be installed.
 
 ## Launch validation
 
@@ -63,16 +64,28 @@ which to guarantee portable HTTP 301 responses, so no HTTP aliases are retained.
 If a hosting platform is chosen later, backwards-compatible aliases can be added
 in that platform's redirect layer.
 
-## Website files
+## Repository structure
 
-- `index.html`: main landing page
-- `styles.css` and `navy.css`: shared layout, responsive styles, and colours
-- `site.js`: navigation and decorative motion
-- `use-cases.html`, `use-cases/`, and `use-cases.css`: automation workflow library
-- `blog/`: articles linked from the homepage
-- `assets/team/`: team portraits
-- `privacy.html`: privacy information
-- `preview-*.html`, `navy.html`, and `blog-navy/`: design variants and alternate pages
+- `src/pages/`: canonical HTML sources. Nested `blog/` and `use-cases/`
+  directories mirror their production URL paths. Historical use-case alias
+  stubs are retained here for reference but are not allowlisted.
+- `src/styles/`: canonical stylesheets copied to the artifact root.
+- `src/js/`: canonical browser JavaScript copied to the artifact root.
+- `src/experiments/`: preview pages, alternate themes, and their supporting
+  styles and scripts. These files can reference the reorganized source tree for
+  local review, but are never copied to production.
+- `static/`: assets and root-level static files copied without changing their
+  public paths, including icons, team images, `robots.txt`, and `sitemap.xml`.
+- `scripts/`: build and launch-validation tooling.
+- `deploy/`: Nginx and certificate-renewal configuration. Deployment reads
+  only the generated artifact.
+- `public-files.txt`: the authoritative list of paths that may appear under
+  `public/`; entries are public artifact paths, not repository source paths.
+- `public/`: generated, gitignored production output. Do not edit it directly.
+
+Canonical HTML keeps links in terms of the production URL layout. Build the
+site before previewing canonical pages so those references resolve exactly as
+they do after deployment.
 
 ## Deploy
 
@@ -93,9 +106,10 @@ Google Fonts are loaded remotely with system-font fallbacks. Workflow articles d
 
 ## Maintenance decisions
 
-- Preview themes, historical aliases, and their supporting styles/scripts are
-  intentionally retained as repository-only design history; the public-file
-  allowlist excludes them.
+- Preview themes and their supporting styles/scripts are intentionally retained
+  under `src/experiments/` as repository-only design history. Historical alias
+  stubs remain under `src/pages/use-cases/`; the public-file allowlist excludes
+  both groups.
 - Team portraits include AVIF and JPEG widths used by responsive `picture`
   sources. The social image and icon variants are referenced by page metadata.
   No allowlisted asset is currently unreferenced, so none is removed.
