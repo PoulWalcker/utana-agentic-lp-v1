@@ -13,6 +13,7 @@ from pathlib import Path, PurePosixPath
 ORIGIN = "https://utana.agentic.technologies"
 SOCIAL_IMAGE_URL = f"{ORIGIN}/assets/social/utana-social-preview.png"
 PRIVACY_PATH = PurePosixPath("privacy.html")
+SPECIAL_PUBLIC_PAGES = {PurePosixPath("404.html"): "noindex"}
 SITEMAP_NAMESPACE = "http://www.sitemaps.org/schemas/sitemap/0.9"
 
 
@@ -101,13 +102,33 @@ def main() -> int:
     errors: list[str] = []
 
     try:
-        html_paths = manifest_html_paths(manifest)
+        manifest_pages = manifest_html_paths(manifest)
     except OSError as error:
         print(f"SEO verification failed: {error}", file=sys.stderr)
         return 1
 
+    html_paths = [path for path in manifest_pages if path not in SPECIAL_PUBLIC_PAGES]
     if not html_paths:
         errors.append("manifest does not contain canonical HTML pages")
+
+    for relative_path, expected_robots in SPECIAL_PUBLIC_PAGES.items():
+        if relative_path not in manifest_pages:
+            errors.append(f"manifest is missing special public page {relative_path}")
+            continue
+
+        parser = HeadParser()
+        try:
+            parser.feed((artifact / relative_path).read_text(encoding="utf-8"))
+            parser.close()
+        except OSError as error:
+            errors.append(f"{relative_path}: cannot read page: {error}")
+            continue
+
+        if parser.metas.get("robots") != [expected_robots]:
+            errors.append(
+                f"{relative_path}: special public page robots policy must be "
+                f"{expected_robots!r}"
+            )
 
     canonical_urls: set[str] = set()
     for relative_path in html_paths:
