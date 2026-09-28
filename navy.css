@@ -4,6 +4,8 @@
 a:not(.button){transition:color .18s ease}
 a:not(.button):hover,a:not(.button):focus-visible{color:var(--link-hover)}
 .light a:not(.button):hover,.light a:not(.button):focus-visible,.contact a:not(.button):hover,.contact a:not(.button):focus-visible{color:#496b29}
+.light :is(a,button,summary,input,textarea):focus-visible,.contact :is(a,button,summary,input,textarea):focus-visible{outline-color:#315a86}
+a.skip:focus-visible{color:#0b1323}
 
 /* Text links change colour only. */
 a.text-link:hover{transform:none}
