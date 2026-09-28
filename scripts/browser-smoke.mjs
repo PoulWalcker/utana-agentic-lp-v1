@@ -591,6 +591,10 @@ async function main() {
     await evaluate('location.hash === "#main" && document.activeElement === document.querySelector("#main")'),
     "skip link: activation did not move focus to main content",
   );
+  assert(
+    await evaluate(`document.querySelector('a[href="tel:+971586601017"]')?.textContent.includes("+971 58 660 1017")`),
+    "contact: phone number is missing",
+  );
   const emailTargets = await evaluate(`(() => ({
     address: document.querySelector("a.email")?.href || "",
     cta: document.querySelector(".email-cta a.button")?.href || "",
