@@ -13,6 +13,22 @@ from urllib.parse import unquote, urlsplit
 
 REFERENCE_ATTRIBUTES = {"action", "href", "poster", "src"}
 CSS_URL = re.compile(r"url\(\s*(['\"]?)(.*?)\1\s*\)", re.IGNORECASE)
+VOID_ELEMENTS = {
+    "area",
+    "base",
+    "br",
+    "col",
+    "embed",
+    "hr",
+    "img",
+    "input",
+    "link",
+    "meta",
+    "param",
+    "source",
+    "track",
+    "wbr",
+}
 LEGACY_ALIAS_PATHS = {
     "use-cases/dentsu-media.html",
     "use-cases/kpn-proposals.html",
@@ -29,13 +45,41 @@ class ReferenceParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.references: list[str] = []
+        self.identifiers: set[str] = set()
+        self.duplicate_identifiers: set[str] = set()
         self.has_meta_refresh = False
+        self.has_html_doctype = False
+        self.html_count = 0
+        self.head_count = 0
+        self.body_count = 0
+        self.open_elements: list[str] = []
+        self.structure_errors: list[str] = []
+
+    def handle_decl(self, decl: str) -> None:
+        if decl.strip().lower() == "doctype html":
+            self.has_html_doctype = True
 
     def handle_starttag(
         self, tag: str, attrs: list[tuple[str, str | None]]
     ) -> None:
+        if tag not in VOID_ELEMENTS:
+            self.open_elements.append(tag)
+
+        if tag == "html":
+            self.html_count += 1
+        elif tag == "head":
+            self.head_count += 1
+        elif tag == "body":
+            self.body_count += 1
+
+        attributes = {name: value for name, value in attrs}
+        identifier = attributes.get("id")
+        if identifier:
+            if identifier in self.identifiers:
+                self.duplicate_identifiers.add(identifier)
+            self.identifiers.add(identifier)
+
         if tag == "meta":
-            attributes = {name: value for name, value in attrs}
             http_equiv = attributes.get("http-equiv")
             if http_equiv and http_equiv.strip().lower() == "refresh":
                 self.has_meta_refresh = True
@@ -51,6 +95,32 @@ class ReferenceParser(HTMLParser):
                     for candidate in value.split(",")
                     if candidate.strip()
                 )
+
+    def handle_startendtag(
+        self, tag: str, attrs: list[tuple[str, str | None]]
+    ) -> None:
+        self.handle_starttag(tag, attrs)
+        if tag not in VOID_ELEMENTS:
+            self.handle_endtag(tag)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in VOID_ELEMENTS:
+            self.structure_errors.append(f"void element has closing tag: {tag}")
+            return
+        if not self.open_elements:
+            self.structure_errors.append(f"unexpected closing tag: {tag}")
+            return
+        expected = self.open_elements[-1]
+        if tag != expected:
+            self.structure_errors.append(
+                f"mismatched closing tag: expected {expected}, found {tag}"
+            )
+            if tag in self.open_elements:
+                while self.open_elements and self.open_elements[-1] != tag:
+                    self.open_elements.pop()
+                self.open_elements.pop()
+            return
+        self.open_elements.pop()
 
 
 def manifest_paths(manifest: Path) -> list[PurePosixPath]:
@@ -98,8 +168,10 @@ def is_forbidden(path: PurePosixPath) -> bool:
 
 def local_target(artifact: Path, source: Path, reference: str) -> Path | None:
     parsed = urlsplit(reference)
-    if parsed.scheme or parsed.netloc or not parsed.path:
+    if parsed.scheme or parsed.netloc:
         return None
+    if not parsed.path:
+        return source if parsed.fragment else None
 
     decoded_path = unquote(parsed.path)
     if decoded_path.startswith("/"):
@@ -150,6 +222,7 @@ def main() -> int:
     }
     expected_set = set(expected)
     errors: list[str] = []
+    parsed_pages: dict[PurePosixPath, ReferenceParser] = {}
 
     for path in sorted(expected_set - actual):
         errors.append(f"missing allowlisted file: {path}")
@@ -160,9 +233,41 @@ def main() -> int:
             errors.append(f"forbidden public file: {path}")
 
     for relative_path in sorted(actual):
+        if relative_path.suffix.lower() not in {".html", ".htm"}:
+            continue
+        source = artifact / relative_path
+        try:
+            page = parse_page(source)
+        except (OSError, UnicodeError) as error:
+            errors.append(f"{relative_path}: cannot parse HTML: {error}")
+            continue
+        parsed_pages[relative_path] = page
+        if not page.has_html_doctype:
+            errors.append(f"{relative_path}: missing HTML5 doctype")
+        for element, count in (
+            ("html", page.html_count),
+            ("head", page.head_count),
+            ("body", page.body_count),
+        ):
+            if count != 1:
+                errors.append(
+                    f"{relative_path}: expected one {element} element, found {count}"
+                )
+        for identifier in sorted(page.duplicate_identifiers):
+            errors.append(f"{relative_path}: duplicate id: {identifier}")
+        for structure_error in page.structure_errors:
+            errors.append(f"{relative_path}: {structure_error}")
+        if page.open_elements:
+            errors.append(
+                f"{relative_path}: unclosed elements: {', '.join(page.open_elements)}"
+            )
+
+    for relative_path in sorted(actual):
         source = artifact / relative_path
         if source.suffix.lower() in {".html", ".htm"}:
-            page = parse_page(source)
+            page = parsed_pages.get(relative_path)
+            if page is None:
+                continue
             references = page.references
             if page.has_meta_refresh:
                 errors.append(f"{relative_path}: meta-refresh redirects are forbidden")
@@ -180,11 +285,23 @@ def main() -> int:
             if target is not None and not target.is_file():
                 errors.append(f"{relative_path}: missing local reference: {reference}")
             elif target is not None and target.suffix.lower() in {".html", ".htm"}:
-                reference_path = unquote(urlsplit(reference).path)
-                if not reference_path.lower().endswith(".html"):
+                parsed_reference = urlsplit(reference)
+                reference_path = unquote(parsed_reference.path)
+                if reference_path and not reference_path.lower().endswith(".html"):
                     errors.append(
                         f"{relative_path}: non-canonical local page reference: {reference}"
                     )
+                fragment = unquote(parsed_reference.fragment)
+                if fragment:
+                    target_relative = PurePosixPath(
+                        target.relative_to(artifact).as_posix()
+                    )
+                    target_page = parsed_pages.get(target_relative)
+                    if target_page is not None and fragment not in target_page.identifiers:
+                        errors.append(
+                            f"{relative_path}: missing fragment in {target_relative}: "
+                            f"#{fragment}"
+                        )
 
     if errors:
         print("Public artifact verification failed:", file=sys.stderr)
@@ -193,7 +310,8 @@ def main() -> int:
         return 1
 
     print(
-        f"Verified {len(actual)} files; all local references resolve inside the artifact."
+        f"Verified {len(actual)} files; HTML structure, IDs, fragments, and all local "
+        "references are valid."
     )
     return 0
 
