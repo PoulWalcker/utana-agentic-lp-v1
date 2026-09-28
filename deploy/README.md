@@ -10,10 +10,10 @@ Run the build and verification before each deployment:
 ./scripts/build-public.sh
 python3 scripts/verify-public.py public public-files.txt
 sudo install -d -o root -g www-data -m 0755 /var/www/utana/public
-sudo rsync -a --delete --chown=root:www-data public/ /var/www/utana/public/
+sudo rsync -a --delete --chmod=D755,F644 --chown=root:www-data public/ /var/www/utana/public/
 ```
 
-Do not point Nginx at the repository checkout. The `--delete` deployment keeps the server directory identical to the allowlisted artifact.
+Do not point Nginx at the repository checkout. The `--delete` deployment keeps the server directory identical to the allowlisted artifact, and `--chmod=D755,F644` defensively preserves Nginx traversal and read access.
 
 ## Bootstrap HTTPS
 

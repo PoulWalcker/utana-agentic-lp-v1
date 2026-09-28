@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import posixpath
 import re
+import stat
 import sys
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
@@ -201,6 +202,26 @@ def css_references(path: Path) -> list[str]:
     return [match.group(2) for match in CSS_URL.finditer(path.read_text(encoding="utf-8"))]
 
 
+def verify_permissions(artifact: Path, errors: list[str]) -> None:
+    for path in [artifact, *sorted(artifact.rglob("*"))]:
+        relative_path = "." if path == artifact else path.relative_to(artifact).as_posix()
+        try:
+            mode = path.stat().st_mode
+        except OSError as error:
+            errors.append(f"{relative_path}: cannot inspect permissions: {error}")
+            continue
+
+        permissions = stat.S_IMODE(mode)
+        if stat.S_ISDIR(mode) and permissions != 0o755:
+            errors.append(
+                f"{relative_path}: directory mode must be 0755, found {permissions:04o}"
+            )
+        elif stat.S_ISREG(mode) and permissions != 0o644:
+            errors.append(
+                f"{relative_path}: file mode must be 0644, found {permissions:04o}"
+            )
+
+
 def main() -> int:
     if len(sys.argv) != 3:
         print("usage: verify-public.py ARTIFACT MANIFEST", file=sys.stderr)
@@ -208,6 +229,7 @@ def main() -> int:
 
     artifact = Path(sys.argv[1]).resolve()
     manifest = Path(sys.argv[2]).resolve()
+    errors: list[str] = []
 
     try:
         expected = manifest_paths(manifest)
@@ -221,8 +243,9 @@ def main() -> int:
         if path.is_file()
     }
     expected_set = set(expected)
-    errors: list[str] = []
     parsed_pages: dict[PurePosixPath, ReferenceParser] = {}
+
+    verify_permissions(artifact, errors)
 
     for path in sorted(expected_set - actual):
         errors.append(f"missing allowlisted file: {path}")

@@ -51,6 +51,8 @@ if [ "$file_count" -eq 0 ]; then
   exit 1
 fi
 
+find "$staging" -type d -exec chmod 0755 {} +
+
 python3 "$script_dir/verify-public.py" "$staging" "$manifest"
 python3 "$script_dir/verify-seo.py" "$staging" "$manifest"
 

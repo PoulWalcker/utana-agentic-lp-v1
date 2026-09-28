@@ -13,4 +13,10 @@ python3 scripts/verify-seo.py public public-files.txt
 git diff --check
 node scripts/browser-smoke.mjs public "${SCREENSHOT_DIR:-/tmp/utana-launch-screenshots}"
 
+if command -v nginx >/dev/null 2>&1; then
+  nginx -t
+else
+  printf 'Nginx is not installed; runtime Nginx validation is deferred to deployment/staging.\n'
+fi
+
 printf 'Launch validation passed.\n'
