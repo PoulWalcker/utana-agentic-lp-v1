@@ -5,10 +5,17 @@ use-cases.html
 
 # Runtime assets
 favicon.svg
+favicon-32x32.png
+apple-touch-icon.png
+assets/social/utana-social-preview.png
 styles.css
 navy.css
 use-cases.css
 site.js
+
+# Search discovery
+robots.txt
+sitemap.xml
 
 # Canonical blog articles
 blog/business-automation.html

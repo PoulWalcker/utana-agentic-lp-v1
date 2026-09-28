@@ -47,6 +47,7 @@ if [ "$file_count" -eq 0 ]; then
 fi
 
 python3 "$script_dir/verify-public.py" "$staging" "$manifest"
+python3 "$script_dir/verify-seo.py" "$staging" "$manifest"
 
 rm -rf "$output"
 mv "$staging" "$output"

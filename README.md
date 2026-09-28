@@ -13,7 +13,8 @@ python3 -m http.server 8766 --directory public
 
 Open http://localhost:8766. The build uses `public-files.txt` as an explicit
 allowlist, recreates `public/`, and verifies that every local page and asset
-reference resolves inside that directory. It requires only POSIX shell tools and
+reference resolves inside that directory. It also checks canonical, social,
+favicon, robots, and sitemap metadata. It requires only POSIX shell tools and
 Python 3; no packages need to be installed.
 
 ## Canonical URL policy
@@ -21,6 +22,9 @@ Python 3; no packages need to be installed.
 Production pages use explicit `.html` URLs, including `index.html` for the
 homepage. Internal links use that form consistently; extensionless paths are not
 part of the site's URL contract.
+
+The production origin for absolute discovery metadata is
+`https://utana.agentic.technologies`.
 
 Preview and alternate-theme pages are not copied into the production artifact.
 The eight historical use-case aliases are also omitted rather than published as
