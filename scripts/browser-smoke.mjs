@@ -339,6 +339,21 @@ async function main() {
     });
   }
 
+  async function hoverSelector(selector) {
+    const point = await evaluate(`(() => {
+      const element = document.querySelector(${JSON.stringify(selector)});
+      if (!element) return null;
+      const rect = element.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    })()`);
+    if (!point) throw new Error(`Cannot hover missing selector: ${selector}`);
+    await send("Input.dispatchMouseEvent", {
+      type: "mouseMoved",
+      x: point.x,
+      y: point.y,
+    });
+  }
+
   async function inspectPage(label) {
     await evaluate(`Promise.race([
       Promise.all([...document.images].map((image) => {
@@ -420,6 +435,187 @@ async function main() {
   await inspectPage("desktop homepage");
   await inspectResponsiveContent("desktop homepage");
   await screenshot("desktop-home.png");
+  const formInteractionStyles = await evaluate(`(() => {
+    const input = document.querySelector("#contact-form input[type=email]");
+    const sheet = [...document.styleSheets].find((candidate) =>
+      candidate.href?.includes("/styles.css"),
+    );
+    const cssText = sheet ? [...sheet.cssRules].map((rule) => rule.cssText).join("\\n") : "";
+    input.focus();
+    const focus = getComputedStyle(input);
+    return {
+      webkitAutofillSupported: CSS.supports("selector(input:-webkit-autofill)"),
+      autofillRuleLoaded:
+        ['input[type="text"]', 'input[type="email"]', 'input[type="tel"]', "textarea"].every(
+          (selector) => ["", ":hover", ":focus"].every((state) =>
+            cssText.includes("#contact #contact-form " + selector + ":-webkit-autofill" + state),
+          ),
+        ) &&
+        cssText.includes("-webkit-text-fill-color") &&
+        cssText.includes("caret-color") &&
+        cssText.includes("background-clip: text") &&
+        !cssText.includes("1000px var(--paper) inset"),
+      inputFocusVisible:
+        input.matches(":focus-visible") &&
+        focus.outlineStyle !== "none" &&
+        focus.outlineWidth !== "0px",
+      pointerCursors: [".button", ".post", "summary", ".email"].every(
+        (selector) => getComputedStyle(document.querySelector(selector)).cursor === "pointer",
+      ),
+    };
+  })()`);
+  assert(
+    formInteractionStyles.webkitAutofillSupported && formInteractionStyles.autofillRuleLoaded,
+    "contact form: Chromium/WebKit autofill styling is missing or unsupported",
+  );
+  assert(formInteractionStyles.inputFocusVisible, "contact form: input focus indicator is not visible");
+  assert(formInteractionStyles.pointerCursors, "interactive controls: pointer cursor is missing");
+  await evaluate('document.querySelector(".member-portrait").scrollIntoView({ block: "center" })');
+  await sleep(700);
+  const portraitBeforeHover = await evaluate(`(() => {
+    const frame = document.querySelector(".member-portrait").getBoundingClientRect();
+    const image = document.querySelector(".member-portrait img").getBoundingClientRect();
+    return { frameWidth: frame.width, frameHeight: frame.height, imageWidth: image.width, imageHeight: image.height };
+  })()`);
+  await hoverSelector(".member-portrait");
+  await sleep(700);
+  const portraitAfterHover = await evaluate(`(() => {
+    const frame = document.querySelector(".member-portrait").getBoundingClientRect();
+    const imageElement = document.querySelector(".member-portrait img");
+    const image = imageElement.getBoundingClientRect();
+    return {
+      hoverCapable: matchMedia("(hover: hover)").matches,
+      frameWidth: frame.width,
+      frameHeight: frame.height,
+      imageWidth: image.width,
+      imageHeight: image.height,
+      transform: getComputedStyle(imageElement).transform,
+    };
+  })()`);
+  assert(portraitAfterHover.hoverCapable, "desktop homepage: hover-capable media query is inactive");
+  assert(
+    portraitAfterHover.transform !== "none" &&
+      portraitAfterHover.imageWidth > portraitBeforeHover.imageWidth &&
+      portraitAfterHover.imageHeight > portraitBeforeHover.imageHeight,
+    "team portraits: desktop hover scale is missing",
+  );
+  assert(
+    Math.abs(portraitAfterHover.frameWidth - portraitBeforeHover.frameWidth) < 0.1 &&
+      Math.abs(portraitAfterHover.frameHeight - portraitBeforeHover.frameHeight) < 0.1,
+    "team portraits: hover changed the portrait container layout",
+  );
+  await screenshot("desktop-team-hover.png");
+  await evaluate('document.documentElement.style.scrollBehavior = "auto"; document.querySelector(".post").scrollIntoView({ block: "center" })');
+  await sleep(800);
+  const insightBeforeHover = await evaluate(`(() => {
+    const card = document.querySelector(".post");
+    const artwork = card.querySelector(".post-art");
+    const cardRect = card.getBoundingClientRect();
+    const artworkRect = artwork.getBoundingClientRect();
+    const style = getComputedStyle(card);
+    const transitionProperties = style.transitionProperty.split(",").map((value) => value.trim());
+    const transitionDurations = style.transitionDuration.split(",").map((value) => value.trim());
+    const transitionTimings = style.transitionTimingFunction.split(",").map((value) => value.trim());
+    const transformTransition = transitionProperties.indexOf("transform");
+    return {
+      cardTop: cardRect.top,
+      cardWidth: cardRect.width,
+      cardHeight: cardRect.height,
+      artworkOffset: artworkRect.top - cardRect.top,
+      transformDuration: transitionDurations[transformTransition],
+      transformTiming: transitionTimings[transformTransition],
+    };
+  })()`);
+  await hoverSelector(".post");
+  await sleep(500);
+  const insightAfterHover = await evaluate(`(() => {
+    const card = document.querySelector(".post");
+    const artwork = card.querySelector(".post-art");
+    const cardRect = card.getBoundingClientRect();
+    const artworkRect = artwork.getBoundingClientRect();
+    const style = getComputedStyle(card);
+    return {
+      hoverCapable: matchMedia("(hover: hover)").matches,
+      cardTop: cardRect.top,
+      cardWidth: cardRect.width,
+      cardHeight: cardRect.height,
+      artworkOffset: artworkRect.top - cardRect.top,
+      cardTransform: style.transform,
+      cardShadow: style.boxShadow,
+      artworkTransform: getComputedStyle(artwork).transform,
+    };
+  })()`);
+  assert(
+    insightAfterHover.hoverCapable &&
+      parseFloat(insightBeforeHover.transformDuration) >= 0.25 &&
+      insightBeforeHover.transformTiming !== "linear",
+    "insight cards: desktop hover transition is missing or abrupt",
+  );
+  assert(
+    insightAfterHover.cardTransform !== "none" &&
+      insightBeforeHover.cardTop - insightAfterHover.cardTop > 0 &&
+      insightBeforeHover.cardTop - insightAfterHover.cardTop <= 4 &&
+      insightAfterHover.cardShadow !== "none",
+    "insight cards: restrained whole-card lift or shadow is missing",
+  );
+  assert(
+    insightAfterHover.artworkTransform === "none" &&
+      Math.abs(insightAfterHover.artworkOffset - insightBeforeHover.artworkOffset) < 0.1 &&
+      Math.abs(insightAfterHover.cardWidth - insightBeforeHover.cardWidth) < 0.1 &&
+      Math.abs(insightAfterHover.cardHeight - insightBeforeHover.cardHeight) < 0.1,
+    "insight cards: artwork moved independently or hover changed card layout",
+  );
+  await screenshot("desktop-insight-hover.png");
+  await evaluate("scrollTo(0, 0)");
+  const navigationBeforeHover = await evaluate(`(() => {
+    const link = document.querySelector('#nav a:not(.button)');
+    const cta = document.querySelector('#nav .button');
+    link.focus();
+    const linkStyle = getComputedStyle(link);
+    const ctaStyle = getComputedStyle(cta);
+    return {
+      backgroundColor: linkStyle.backgroundColor,
+      borderRadius: linkStyle.borderRadius,
+      boxShadow: linkStyle.boxShadow,
+      focusVisible: link.matches(":focus-visible") && linkStyle.outlineStyle !== "none" && linkStyle.outlineWidth !== "0px",
+      ctaBackgroundColor: ctaStyle.backgroundColor,
+      ctaBackgroundImage: ctaStyle.backgroundImage,
+      ctaBorderRadius: ctaStyle.borderRadius,
+    };
+  })()`);
+  await hoverSelector('#nav a:not(.button)');
+  await sleep(300);
+  const navigationAfterHover = await evaluate(`(() => {
+    const link = document.querySelector('#nav a:not(.button)');
+    const style = getComputedStyle(link);
+    return {
+      backgroundColor: style.backgroundColor,
+      borderRadius: style.borderRadius,
+      boxShadow: style.boxShadow,
+      decorationContent: getComputedStyle(link, "::after").content,
+    };
+  })()`);
+  assert(
+    navigationBeforeHover.focusVisible,
+    "header navigation: regular link focus indicator is not visible",
+  );
+  assert(
+    navigationAfterHover.backgroundColor === navigationBeforeHover.backgroundColor &&
+      navigationAfterHover.borderRadius === navigationBeforeHover.borderRadius &&
+      navigationAfterHover.boxShadow === navigationBeforeHover.boxShadow &&
+      navigationAfterHover.decorationContent === "none",
+    "header navigation: regular link gained a pill, background, or underline on hover",
+  );
+  assert(
+    navigationBeforeHover.ctaBorderRadius !== "0px" &&
+      (navigationBeforeHover.ctaBackgroundColor !== "rgba(0, 0, 0, 0)" ||
+        navigationBeforeHover.ctaBackgroundImage !== "none"),
+    "header navigation: CTA lost its button treatment",
+  );
+  await screenshot("desktop-nav-hover.png");
+  await evaluate('document.documentElement.style.scrollBehavior = "auto"; document.querySelector("#contact").scrollIntoView()');
+  await screenshot("desktop-contact.png");
+  await evaluate("scrollTo(0, 0)");
   assert(
     (await evaluate('document.querySelectorAll("#nav a").length')) >= 5,
     "desktop homepage: expected navigation links",
@@ -541,11 +737,37 @@ async function main() {
     deviceScaleFactor: 1,
     mobile: true,
   });
+  await send("Emulation.setTouchEmulationEnabled", {
+    enabled: true,
+    maxTouchPoints: 1,
+  });
   await navigate("/index.html");
   await inspectPage("mobile homepage");
   await inspectResponsiveContent("mobile homepage");
   await inspectMobileNavigation("mobile homepage");
+  assert(
+    await evaluate('matchMedia("(hover: none)").matches && getComputedStyle(document.querySelector(".member-portrait img")).transform === "none"'),
+    "mobile homepage: team portrait hover motion leaked onto a touch viewport",
+  );
+  await evaluate('document.documentElement.style.scrollBehavior = "auto"; document.querySelector(".post").scrollIntoView({ block: "center" })');
+  await sleep(800);
+  await hoverSelector(".post");
+  await sleep(100);
+  assert(
+    await evaluate(`(() => {
+      const transform = getComputedStyle(document.querySelector(".post")).transform;
+      if (transform === "none") return true;
+      const matrix = new DOMMatrix(transform);
+      return Math.abs(matrix.m41) < 0.1 && Math.abs(matrix.m42) < 0.1;
+    })()`),
+    "mobile homepage: insight card hover motion leaked onto a touch viewport",
+  );
   await screenshot("mobile-home.png");
+  await evaluate('document.documentElement.style.scrollBehavior = "auto"; document.querySelector("#contact").scrollIntoView()');
+  await screenshot("mobile-contact.png");
+  await evaluate('document.querySelector("#contact-form").scrollIntoView()');
+  await screenshot("mobile-form.png");
+  await evaluate("scrollTo(0, 0)");
   await clickSelector(".menu");
   assert(
     await evaluate('document.querySelector(".menu").getAttribute("aria-expanded") === "true" && document.querySelector("#nav").classList.contains("open")'),
@@ -635,6 +857,13 @@ async function main() {
     "contact form: submission control, status region, or obsolete email CTA is incorrect",
   );
 
+  await send("Emulation.setDeviceMetricsOverride", {
+    width: 1440,
+    height: 1000,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+  await send("Emulation.setTouchEmulationEnabled", { enabled: false });
   await send("Emulation.setEmulatedMedia", {
     features: [{ name: "prefers-reduced-motion", value: "reduce" }],
   });
@@ -652,6 +881,20 @@ async function main() {
   assert(
     (await evaluate('document.querySelector(".orbit-art")?.style.getPropertyValue("--orbit-shift") || ""')) === "",
     "reduced motion: decorative orbit movement remained active",
+  );
+  await evaluate('document.documentElement.style.scrollBehavior = "auto"; document.querySelector(".member-portrait").scrollIntoView({ block: "center" })');
+  await hoverSelector(".member-portrait");
+  await sleep(100);
+  assert(
+    await evaluate('getComputedStyle(document.querySelector(".member-portrait img")).transform === "none"'),
+    "reduced motion: team portrait hover scale remained active",
+  );
+  await evaluate('document.querySelector(".post").scrollIntoView({ block: "center" })');
+  await hoverSelector(".post");
+  await sleep(100);
+  assert(
+    await evaluate('getComputedStyle(document.querySelector(".post")).transform === "none"'),
+    "reduced motion: insight card hover movement remained active",
   );
 
   await send("Emulation.setEmulatedMedia", {

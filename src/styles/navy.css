@@ -1,18 +1,21 @@
-:root{--bg:#0b1323;--surface:#131f33;--text:#f2f4f8;--muted:#aab7cc;--line:#2a3951;--lime:#d3dceb;--paper:#edf0f5}header{background:#0b1323f5}.light{color:#152238}.light p{color:#526078}.light .lead{color:#26374f}.light em{color:#566f99}.button:hover{background:#fff;color:#152238}.contact{color:#152238}.contact p,.contact .eyebrow{color:#425777}.email{border-color:#8d9eb9}.monogram{background:#d6deeb;color:#667c9d;border-color:#a6b6cf}.monogram span{color:#3e5477}.art-one{background:#d3dceb;color:#243857}.art-two{background:#1b2d49;color:#d3dceb}.art-three{background:#a9bad4;color:#203653}.post-art{border-color:#536b91}.index{color:#617797}.services article{border-color:#a6b3c8}.theme-switch{background:#131f33;border-color:#2a3951}.theme-switch span{color:#becbe0}.theme-switch a{border-color:#647895}.theme-switch a[aria-current]{background:#d3dceb;color:#152238}a:focus-visible,button:focus-visible,summary:focus-visible{outline-color:#738fbc}
+:root{--bg:#0b1323;--surface:#131f33;--text:#f2f4f8;--muted:#aab7cc;--line:#2a3951;--lime:#d3dceb;--paper:#edf0f5}header{background:#0b1323f5}.light{color:#152238}.light p{color:#526078}.light .lead{color:#26374f}.light em{color:#566f99}.contact{color:#152238}.contact p,.contact .eyebrow{color:#425777}.email{border-color:#8d9eb9}.monogram{background:#d6deeb;color:#667c9d;border-color:#a6b6cf}.monogram span{color:#3e5477}.art-one{background:#d3dceb;color:#243857}.art-two{background:#1b2d49;color:#d3dceb}.art-three{background:#a9bad4;color:#203653}.post-art{border-color:#536b91}.index{color:#617797}.services article{border-color:#a6b3c8}.theme-switch{background:#131f33;border-color:#2a3951}.theme-switch span{color:#becbe0}.theme-switch a{border-color:#647895}.theme-switch a[aria-current]{background:#d3dceb;color:#152238}a:focus-visible,button:focus-visible,summary:focus-visible{outline-color:#738fbc}
 /* Subtle favicon-inspired colour for text links. */
 :root{--link-hover:#c5f773}
-a:not(.button){transition:color .18s ease}
-a:not(.button):hover,a:not(.button):focus-visible{color:var(--link-hover)}
-.light a:not(.button):hover,.light a:not(.button):focus-visible,.contact a:not(.button):hover,.contact a:not(.button):focus-visible{color:#496b29}
+a:not(.button,.post){transition:color .18s ease}
+a:not(.button):focus-visible{color:var(--link-hover)}
+.light a:not(.button):focus-visible,.contact a:not(.button):focus-visible{color:#496b29}
 .light :is(a,button,summary,input,textarea):focus-visible,.contact :is(a,button,summary,input,textarea):focus-visible{outline-color:#315a86}
 a.skip:focus-visible{color:#0b1323}
 
-/* Text links change colour only. */
-a.text-link:hover{transform:none}
-header #nav>a:not(.button):hover:after{transform:scaleX(0)}
-
 /* Pilot invitation stays highlighted before interaction. */
-a.pilot-alert{background:#c5f773;color:#0b1423;border-color:#c5f773;box-shadow:0 0 28px #c5f77314}a.pilot-alert:hover,a.pilot-alert:focus-visible{background:#d3fa96;color:#0b1423}.pilot-alert .pilot-dot{background:#25431b;box-shadow:0 0 10px #25431b40}
+a.pilot-alert{background:#c5f773;color:#0b1423;border-color:#c5f773;box-shadow:0 0 28px #c5f77314}a.pilot-alert:focus-visible{background:#d3fa96;color:#0b1423}.pilot-alert .pilot-dot{background:#25431b;box-shadow:0 0 10px #25431b40}
+
+@media(hover:hover){
+ .button:hover{background:#fff;color:#152238}
+ a:not(.button):hover{color:var(--link-hover)}
+ .light a:not(.button):hover,.contact a:not(.button):hover{color:#496b29}
+ a.pilot-alert:hover{background:#d3fa96;color:#0b1423}
+}
 
 .team-member .member-role{font-weight:700}
 
