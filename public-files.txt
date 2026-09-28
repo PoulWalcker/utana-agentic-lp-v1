@@ -1,5 +1,6 @@
 # Canonical top-level pages
 index.html
+404.html
 privacy.html
 use-cases.html
 

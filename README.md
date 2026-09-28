@@ -52,6 +52,9 @@ the web server's document root to the repository root. Preview pages, repository
 metadata, unused assets, and build tooling are intentionally absent from the
 artifact.
 
+The production Ubuntu, Nginx, HTTPS, redirect, caching, error-page, and
+certificate-renewal procedure is documented in [`deploy/README.md`](deploy/README.md).
+
 ## Contact
 
 The contact CTA opens the visitor's email application with a pre-filled subject addressed to `info@utana.agentic.technologies`. The visitor must write and send the email themselves. The address remains visible and copyable if no mail application is configured. The website has no submission backend or contact database.
