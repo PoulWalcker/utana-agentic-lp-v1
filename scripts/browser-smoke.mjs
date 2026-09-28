@@ -376,6 +376,40 @@ async function main() {
     writeFileSync(join(screenshotDirectory, name), Buffer.from(data, "base64"));
   }
 
+  async function inspectMobileNavigation(label) {
+    const state = await evaluate(`(() => {
+      const menu = document.querySelector(".menu");
+      const nav = document.querySelector("#nav");
+      return {
+        menuVisible: getComputedStyle(menu).display !== "none",
+        expanded: menu.getAttribute("aria-expanded"),
+        navVisible: getComputedStyle(nav).visibility === "visible",
+        navInert: nav.inert,
+      };
+    })()`);
+    assert(state.menuVisible, `${label}: menu control is not visible`);
+    assert(state.expanded === "false", `${label}: menu did not initialise closed`);
+    assert(!state.navVisible, `${label}: closed navigation remained visible`);
+    assert(state.navInert, `${label}: hidden navigation remained keyboard accessible`);
+  }
+
+  async function inspectResponsiveContent(label) {
+    const result = await evaluate(`(() => {
+      const cta = document.querySelector(".hero-bottom .button");
+      const portraits = [...document.querySelectorAll(".member-portrait img")];
+      const sources = [...document.querySelectorAll(".member-portrait source")];
+      const rect = cta.getBoundingClientRect();
+      return {
+        ctaFits: rect.left >= -1 && rect.right <= innerWidth + 1 && cta.scrollWidth <= cta.clientWidth + 1,
+        portraitsRendered: portraits.every((image) => image.complete && image.naturalWidth > 0),
+        portraitHintsValid: [...portraits, ...sources].every((image) => image.sizes === "(max-width: 600px) 180px, 220px"),
+      };
+    })()`);
+    assert(result.ctaFits, `${label}: primary CTA clips or overflows`);
+    assert(result.portraitsRendered, `${label}: one or more team portraits did not render`);
+    assert(result.portraitHintsValid, `${label}: team portrait sizes hints are invalid`);
+  }
+
   await send("Emulation.setDeviceMetricsOverride", {
     width: 1440,
     height: 1000,
@@ -384,6 +418,7 @@ async function main() {
   });
   await navigate("/index.html");
   await inspectPage("desktop homepage");
+  await inspectResponsiveContent("desktop homepage");
   await screenshot("desktop-home.png");
   assert(
     (await evaluate('document.querySelectorAll("#nav a").length')) >= 5,
@@ -394,6 +429,30 @@ async function main() {
     (await evaluate("location.hash")) === "#consulting",
     "desktop homepage: navigation link did not reach #consulting",
   );
+  const socialMetadata = await evaluate(`(() => ({
+    canonical: document.querySelector("link[rel=canonical]")?.href,
+    ogUrl: document.querySelector('meta[property="og:url"]')?.content,
+    ogTitle: document.querySelector('meta[property="og:title"]')?.content,
+    ogDescription: document.querySelector('meta[property="og:description"]')?.content,
+    ogImage: document.querySelector('meta[property="og:image"]')?.content,
+    ogImageType: document.querySelector('meta[property="og:image:type"]')?.content,
+    ogSiteName: document.querySelector('meta[property="og:site_name"]')?.content,
+    twitterCard: document.querySelector('meta[name="twitter:card"]')?.content,
+    twitterTitle: document.querySelector('meta[name="twitter:title"]')?.content,
+    twitterDescription: document.querySelector('meta[name="twitter:description"]')?.content,
+    twitterImage: document.querySelector('meta[name="twitter:image"]')?.content,
+  }))()`);
+  assert(socialMetadata.canonical === "https://utana.agentic.technologies/index.html", "homepage: canonical URL changed");
+  assert(socialMetadata.ogUrl === "https://utana.agentic.technologies/index.html", "homepage: og:url changed");
+  assert(socialMetadata.ogTitle === "Utana — Agentic Workflow Automation", "homepage: og:title is incorrect");
+  assert(socialMetadata.ogDescription === "AI agents that automate repetitive workflows and help teams move faster.", "homepage: og:description is incorrect");
+  assert(socialMetadata.twitterTitle === socialMetadata.ogTitle, "homepage: social titles do not match");
+  assert(socialMetadata.twitterDescription === socialMetadata.ogDescription, "homepage: social descriptions do not match");
+  assert(socialMetadata.ogImage === "https://utana-agentic-lp-v.vercel.app/assets/social/utana-social-preview.png", "homepage: og:image is incorrect");
+  assert(socialMetadata.twitterImage === socialMetadata.ogImage, "homepage: social images do not match");
+  assert(socialMetadata.ogImageType === "image/png", "homepage: og:image:type is missing");
+  assert(socialMetadata.ogSiteName === "Utana", "homepage: og:site_name is missing");
+  assert(socialMetadata.twitterCard === "summary_large_image", "homepage: Twitter card type changed");
 
   await navigate("/blog/first-workflow.html");
   await inspectPage("canonical blog article");
@@ -411,6 +470,72 @@ async function main() {
   );
 
   await send("Emulation.setDeviceMetricsOverride", {
+    width: 768,
+    height: 1024,
+    deviceScaleFactor: 1,
+    mobile: true,
+  });
+  await navigate("/index.html");
+  await inspectPage("tablet homepage");
+  await inspectResponsiveContent("tablet homepage");
+  await inspectMobileNavigation("tablet homepage");
+  await screenshot("tablet-home.png");
+  await evaluate('document.documentElement.style.scrollBehavior = "auto"; document.querySelector("#insights").scrollIntoView()');
+  await screenshot("tablet-insights.png");
+  await evaluate('document.querySelector("#contact").scrollIntoView()');
+  await screenshot("tablet-contact.png");
+  await evaluate("scrollTo(0, 0)");
+  assert(
+    await evaluate('getComputedStyle(document.querySelector(".blog-grid")).gridTemplateColumns.split(" ").length === 2'),
+    "tablet homepage: insights did not switch to two columns",
+  );
+  assert(
+    await evaluate('getComputedStyle(document.querySelector("#contact .split")).gridTemplateColumns.split(" ").length === 1'),
+    "tablet homepage: contact split remained compressed",
+  );
+  await clickSelector(".menu");
+  assert(
+    await evaluate('document.querySelector("#nav").classList.contains("open") && !document.querySelector("#nav").inert'),
+    "tablet menu: navigation did not open",
+  );
+  await send("Emulation.setDeviceMetricsOverride", {
+    width: 1200,
+    height: 900,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+  await sleep(100);
+  assert(
+    await evaluate('document.querySelector(".menu").getAttribute("aria-expanded") === "false" && !document.querySelector("#nav").classList.contains("open") && !document.querySelector("#nav").inert && getComputedStyle(document.querySelector("#nav")).visibility === "visible"'),
+    "responsive menu: state was not reconciled at the desktop breakpoint",
+  );
+
+  await send("Emulation.setDeviceMetricsOverride", {
+    width: 320,
+    height: 700,
+    deviceScaleFactor: 1,
+    mobile: true,
+  });
+  await navigate("/index.html");
+  await inspectPage("narrow mobile homepage");
+  await inspectResponsiveContent("narrow mobile homepage");
+  await inspectMobileNavigation("narrow mobile homepage");
+  await screenshot("narrow-mobile-home.png");
+  await evaluate('document.documentElement.style.scrollBehavior = "auto"; document.querySelector("#insights").scrollIntoView()');
+  await screenshot("narrow-mobile-insights.png");
+  await evaluate("scrollTo(0, 0)");
+  assert(
+    await evaluate('document.querySelector("#workflow-background")?.dataset.animationMode === "limited"'),
+    "narrow mobile homepage: decorative canvas was not limited",
+  );
+  await clickSelector(".menu");
+  await clickSelector(".menu");
+  assert(
+    await evaluate('document.querySelector("#nav").inert && document.querySelector(".menu").getAttribute("aria-expanded") === "false"'),
+    "narrow mobile menu: closed state remained interactive",
+  );
+
+  await send("Emulation.setDeviceMetricsOverride", {
     width: 390,
     height: 844,
     deviceScaleFactor: 1,
@@ -418,6 +543,8 @@ async function main() {
   });
   await navigate("/index.html");
   await inspectPage("mobile homepage");
+  await inspectResponsiveContent("mobile homepage");
+  await inspectMobileNavigation("mobile homepage");
   await screenshot("mobile-home.png");
   await clickSelector(".menu");
   assert(
@@ -440,6 +567,13 @@ async function main() {
     return style.outlineStyle !== "none" || style.boxShadow !== "none";
   })()`);
   assert(focusVisible, "mobile menu: keyboard focus is not visibly styled");
+  await press("Enter");
+  await sleep(100);
+  assert(
+    await evaluate('document.querySelector(".menu").getAttribute("aria-expanded") === "false" && document.querySelector("#nav").inert && document.activeElement === document.querySelector(".menu")'),
+    "mobile menu: keyboard link activation left focus inside hidden navigation",
+  );
+  await press("Enter");
   await press("Escape");
   assert(
     await evaluate('document.querySelector(".menu").getAttribute("aria-expanded") === "false" && document.activeElement === document.querySelector(".menu")'),
@@ -483,11 +617,27 @@ async function main() {
     await evaluate('matchMedia("(prefers-reduced-motion: reduce)").matches && !document.querySelector(".reveal-ready")'),
     "reduced motion: reveal animation setup was not disabled",
   );
+  assert(
+    await evaluate('document.querySelector("#workflow-background")?.dataset.animationMode === "static" && getComputedStyle(document.querySelector(".workflow-heart")).animationName === "none"'),
+    "reduced motion: decorative treatment remained animated",
+  );
   await evaluate("scrollTo(0, 700)");
   await sleep(100);
   assert(
     (await evaluate('document.querySelector(".orbit-art")?.style.getPropertyValue("--orbit-shift") || ""')) === "",
     "reduced motion: decorative orbit movement remained active",
+  );
+
+  await send("Emulation.setEmulatedMedia", {
+    features: [{ name: "prefers-reduced-motion", value: "no-preference" }],
+  });
+  await send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `Object.defineProperty(navigator, "connection", { configurable: true, value: { saveData: true } });`,
+  });
+  await navigate("/index.html");
+  assert(
+    await evaluate('document.body.classList.contains("save-data") && document.querySelector("#workflow-background")?.dataset.animationMode === "static" && getComputedStyle(document.querySelector(".workflow-heart")).animationName === "none"'),
+    "save-data: decorative treatment was not reduced to a static state",
   );
 
   assert(consoleErrors.length === 0, `console errors: ${consoleErrors.join(" | ")}`);
@@ -500,7 +650,7 @@ async function main() {
     throw new Error(`Browser smoke failed:\n- ${failures.join("\n- ")}`);
   }
   console.log(
-    `Browser smoke passed (desktop 1440x1000, mobile 390x844). Screenshots: ${screenshotDirectory}`,
+    `Browser smoke passed (desktop 1440x1000, tablet 768x1024, mobile 390x844, narrow mobile 320x700). Screenshots: ${screenshotDirectory}`,
   );
 }
 
@@ -511,6 +661,12 @@ try {
   if (stderr.trim()) console.error(stderr.trim());
   process.exitCode = 1;
 } finally {
-  child.kill("SIGTERM");
-  rmSync(profile, { recursive: true, force: true });
+  if (child.exitCode === null && child.signalCode === null) {
+    child.kill("SIGTERM");
+    await Promise.race([
+      new Promise((resolvePromise) => child.once("exit", resolvePromise)),
+      sleep(1000),
+    ]);
+  }
+  rmSync(profile, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 });
 }

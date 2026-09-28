@@ -12,6 +12,14 @@ from pathlib import Path, PurePosixPath
 
 ORIGIN = "https://utana.agentic.technologies"
 SOCIAL_IMAGE_URL = f"{ORIGIN}/assets/social/utana-social-preview.png"
+HOME_PATH = PurePosixPath("index.html")
+HOME_SOCIAL_IMAGE_URL = (
+    "https://utana-agentic-lp-v.vercel.app/assets/social/utana-social-preview.png"
+)
+HOME_SOCIAL_TITLE = "Utana — Agentic Workflow Automation"
+HOME_SOCIAL_DESCRIPTION = (
+    "AI agents that automate repetitive workflows and help teams move faster."
+)
 PRIVACY_PATH = PurePosixPath("privacy.html")
 SPECIAL_PUBLIC_PAGES = {PurePosixPath("404.html"): "noindex"}
 SITEMAP_NAMESPACE = "http://www.sitemaps.org/schemas/sitemap/0.9"
@@ -167,19 +175,28 @@ def main() -> int:
             errors.append(f"{relative_path}: duplicate canonical URL {canonical}")
         canonical_urls.add(canonical)
 
+        social_title = HOME_SOCIAL_TITLE if relative_path == HOME_PATH else title
+        social_description = (
+            HOME_SOCIAL_DESCRIPTION if relative_path == HOME_PATH else description
+        )
+        social_image = (
+            HOME_SOCIAL_IMAGE_URL if relative_path == HOME_PATH else SOCIAL_IMAGE_URL
+        )
         expected_meta = {
-            "og:title": title,
-            "og:description": description,
+            "og:title": social_title,
+            "og:description": social_description,
             "og:type": expected_type,
             "og:url": expected_url,
-            "og:image": SOCIAL_IMAGE_URL,
+            "og:image": social_image,
             "og:image:width": "1200",
             "og:image:height": "630",
             "twitter:card": "summary_large_image",
-            "twitter:title": title,
-            "twitter:description": description,
-            "twitter:image": SOCIAL_IMAGE_URL,
+            "twitter:title": social_title,
+            "twitter:description": social_description,
+            "twitter:image": social_image,
         }
+        if relative_path == HOME_PATH:
+            expected_meta.update({"og:site_name": "Utana", "og:image:type": "image/png"})
         for key, expected in expected_meta.items():
             actual = one(parser.metas.get(key), key, relative_path, errors)
             if actual != expected:
