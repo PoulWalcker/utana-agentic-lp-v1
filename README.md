@@ -16,6 +16,19 @@ allowlist, recreates `public/`, and verifies that every local page and asset
 reference resolves inside that directory. It requires only POSIX shell tools and
 Python 3; no packages need to be installed.
 
+## Canonical URL policy
+
+Production pages use explicit `.html` URLs, including `index.html` for the
+homepage. Internal links use that form consistently; extensionless paths are not
+part of the site's URL contract.
+
+Preview and alternate-theme pages are not copied into the production artifact.
+The eight historical use-case aliases are also omitted rather than published as
+HTML redirects. The repository has no deployment-runtime redirect facility with
+which to guarantee portable HTTP 301 responses, so no HTTP aliases are retained.
+If a hosting platform is chosen later, backwards-compatible aliases can be added
+in that platform's redirect layer.
+
 ## Website files
 
 - `index.html`: main landing page

@@ -13,17 +13,33 @@ from urllib.parse import unquote, urlsplit
 
 REFERENCE_ATTRIBUTES = {"action", "href", "poster", "src"}
 CSS_URL = re.compile(r"url\(\s*(['\"]?)(.*?)\1\s*\)", re.IGNORECASE)
+LEGACY_ALIAS_PATHS = {
+    "use-cases/dentsu-media.html",
+    "use-cases/kpn-proposals.html",
+    "use-cases/lumen-sales.html",
+    "use-cases/microsoft-campaigns.html",
+    "use-cases/morgan-stanley-knowledge.html",
+    "use-cases/oscar-claims.html",
+    "use-cases/retailer-invoices.html",
+    "use-cases/thyssenkrupp-engineering.html",
+}
 
 
 class ReferenceParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.references: list[str] = []
+        self.has_meta_refresh = False
 
     def handle_starttag(
         self, tag: str, attrs: list[tuple[str, str | None]]
     ) -> None:
-        del tag
+        if tag == "meta":
+            attributes = {name: value for name, value in attrs}
+            http_equiv = attributes.get("http-equiv")
+            if http_equiv and http_equiv.strip().lower() == "refresh":
+                self.has_meta_refresh = True
+
         for name, value in attrs:
             if not value:
                 continue
@@ -65,6 +81,7 @@ def manifest_paths(manifest: Path) -> list[PurePosixPath]:
 def is_forbidden(path: PurePosixPath) -> bool:
     return (
         ".git" in path.parts
+        or path.as_posix() in LEGACY_ALIAS_PATHS
         or path.name in {".gitignore", "README.md", "navy.html", "privacy-navy.html"}
         or path.name.startswith("preview-")
         or path.parts[0] == "blog-navy"
@@ -101,11 +118,11 @@ def local_target(artifact: Path, source: Path, reference: str) -> Path | None:
     return target
 
 
-def page_references(path: Path) -> list[str]:
+def parse_page(path: Path) -> ReferenceParser:
     parser = ReferenceParser()
     parser.feed(path.read_text(encoding="utf-8"))
     parser.close()
-    return parser.references
+    return parser
 
 
 def css_references(path: Path) -> list[str]:
@@ -145,7 +162,10 @@ def main() -> int:
     for relative_path in sorted(actual):
         source = artifact / relative_path
         if source.suffix.lower() in {".html", ".htm"}:
-            references = page_references(source)
+            page = parse_page(source)
+            references = page.references
+            if page.has_meta_refresh:
+                errors.append(f"{relative_path}: meta-refresh redirects are forbidden")
         elif source.suffix.lower() == ".css":
             references = css_references(source)
         else:
@@ -159,6 +179,12 @@ def main() -> int:
                 continue
             if target is not None and not target.is_file():
                 errors.append(f"{relative_path}: missing local reference: {reference}")
+            elif target is not None and target.suffix.lower() in {".html", ".htm"}:
+                reference_path = unquote(urlsplit(reference).path)
+                if not reference_path.lower().endswith(".html"):
+                    errors.append(
+                        f"{relative_path}: non-canonical local page reference: {reference}"
+                    )
 
     if errors:
         print("Public artifact verification failed:", file=sys.stderr)
