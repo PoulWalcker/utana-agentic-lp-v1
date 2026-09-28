@@ -463,15 +463,15 @@ async function main() {
     fallback: document.querySelector(".email-address")?.textContent.trim() || "",
   }))()`);
   assert(
-    emailTargets.address === "mailto:info@utana.agentic.technologies",
+    emailTargets.address === "mailto:sapiens@utana.group",
     `email address: unexpected target ${emailTargets.address}`,
   );
   assert(
-    emailTargets.cta === "mailto:info@utana.agentic.technologies?subject=Early%20automation%20pilot%20application",
+    emailTargets.cta === "mailto:sapiens@utana.group?subject=Early%20automation%20pilot%20application",
     `email CTA: unexpected target ${emailTargets.cta}`,
   );
   assert(
-    emailTargets.fallback === "info@utana.agentic.technologies",
+    emailTargets.fallback === "sapiens@utana.group",
     "email CTA: copyable fallback address is missing",
   );
 
