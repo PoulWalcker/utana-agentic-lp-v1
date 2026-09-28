@@ -36,3 +36,4 @@ assets/team/EDIT-NOTES.md
 # AI
 .codex
 .claude
+__pycache__/
