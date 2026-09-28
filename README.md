@@ -1,6 +1,6 @@
 # Utana Agentic Technologies
 
-Responsive static website for Utana, with a navy and silver design, automation use cases, articles, team profiles, and a pilot enquiry form.
+Responsive static website for Utana, with a navy and silver design, automation use cases, articles, team profiles, and an email contact experience.
 
 ## Build and preview the production site
 
@@ -20,7 +20,7 @@ Python 3; no packages need to be installed.
 
 - `index.html`: main landing page
 - `styles.css` and `navy.css`: shared layout, responsive styles, and colours
-- `site.js`: navigation, decorative motion, and enquiry form behaviour
+- `site.js`: navigation and decorative motion
 - `use-cases.html`, `use-cases/`, and `use-cases.css`: automation workflow library
 - `blog/`: articles linked from the homepage
 - `assets/team/`: team portraits
@@ -35,9 +35,9 @@ the web server's document root to the repository root. Preview pages, repository
 metadata, unused assets, and build tooling are intentionally absent from the
 artifact.
 
-## Contact form
+## Contact
 
-The form validates the required contact name, business name, phone, email, and workflow description, then opens an email draft addressed to `info@utana.agentic.technologies`. The visitor must send the draft from their email application. There is no submission backend or database.
+The contact CTA opens the visitor's email application with a pre-filled subject addressed to `info@utana.agentic.technologies`. The visitor must write and send the email themselves. The address remains visible and copyable if no mail application is configured. The website has no submission backend or contact database.
 
 Google Fonts are loaded remotely with system-font fallbacks. Workflow articles describe proposed implementations, not measured customer results.
 
