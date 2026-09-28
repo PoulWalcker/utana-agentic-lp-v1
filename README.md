@@ -1,129 +1,92 @@
-# Utana Agentic Technologies
+# Utana website
 
-Responsive static website for Utana, with a navy and silver design, automation use cases, articles, team profiles, and an email contact experience.
+This repository contains Utana's static website. The source is plain HTML, CSS,
+and JavaScript; the build collects the production files into a generated
+`public/` directory for validation and deployment.
 
-## Build and preview the production site
+## Project structure
 
-From this directory:
+- `src/pages/` — production HTML pages, arranged to match their public URLs.
+- `src/styles/` — production stylesheets.
+- `src/js/` — browser JavaScript.
+- `src/experiments/` — design previews and alternate themes kept for local
+  reference; these are not included in production builds.
+- `static/` — runtime assets and root files such as images, icons, `robots.txt`,
+  and `sitemap.xml`.
+- `scripts/` — build, verification, and browser-smoke tools.
+- `deploy/` — Nginx and certificate configuration for production.
+- `public/` — generated, gitignored production output. Do not edit it directly.
+
+`public-files.txt` lists every path allowed in the production artifact.
+
+## Local development
+
+Build the site, then serve the generated output with Python:
 
 ```sh
 ./scripts/build-public.sh
 python3 -m http.server 8766 --directory public
 ```
 
-Open http://localhost:8766. The build uses `public-files.txt` as an explicit
-artifact-path allowlist, resolves each entry from `src/pages/`, `src/styles/`,
-`src/js/`, or `static/`, and recreates `public/` with the site's public URL
-layout. It verifies that every local page and asset reference and fragment
-resolves inside that directory. It also checks basic HTML structure, unique
-IDs, canonical, social, favicon, robots, and sitemap metadata. It requires only
-POSIX shell tools and Python 3; no packages need to be installed.
+Open <http://localhost:8766>. Rebuild after changing files under `src/`,
+`static/`, or `public-files.txt`.
 
-## Launch validation
+The build uses POSIX shell tools and Python 3; it does not install any packages.
 
-Run the complete production gate from a clean checkout:
+## Validation
+
+Run the full launch check from the repository root:
 
 ```sh
 ./scripts/validate-launch.sh
 ```
 
-The command builds the allowlisted artifact, reruns the artifact and SEO
-checks, checks the Git diff for whitespace errors, and exercises `public/` in
-headless Chrome at desktop and mobile sizes. The browser smoke covers primary
-navigation, the mobile menu, keyboard focus and Escape behavior, the skip link,
-the email CTA target, representative blog and use-case articles, the custom
-404, broken images, horizontal overflow, layout shift, console/network errors,
-and reduced-motion behavior. It writes review screenshots to
-`/tmp/utana-launch-screenshots` by default; set `SCREENSHOT_DIR` to override it.
+This builds the production artifact and checks:
 
-Chrome or Chromium and Node.js are required for the browser portion. Set
-`CHROME_BIN` when the browser is not installed in a standard macOS or Linux
-location. No Node packages or browser framework are required.
+- the allowlisted contents of `public/`;
+- HTML structure, local assets, internal links, and fragments;
+- canonical URLs, social metadata, favicons, robots, and sitemap data;
+- browser behavior at desktop and mobile sizes, including navigation, keyboard
+  interaction, reduced motion, layout overflow, broken images, and console or
+  network errors;
+- whitespace errors in the Git diff.
 
-## Browser support
+Browser smoke tests require Node.js and Chrome or Chromium. Set `CHROME_BIN` if
+the browser is installed in a non-standard location. Screenshots are written to
+`/tmp/utana-launch-screenshots` by default; set `SCREENSHOT_DIR` to change it.
 
-The supported baseline is the current and previous major releases of Chrome,
-Edge, Firefox, and Safari, including current iOS Safari and Android Chrome.
-The launch gate runs in the locally installed Chrome/Chromium; release review
-should still sample Safari and Firefox when their rendering engines are
-available.
+For focused debugging, run the lower-level checks directly:
 
-## Canonical URL policy
+```sh
+python3 scripts/verify-public.py public public-files.txt
+python3 scripts/verify-seo.py public public-files.txt
+node scripts/browser-smoke.mjs public
+```
 
-Production pages use explicit `.html` URLs, including `index.html` for the
-homepage. Internal links use that form consistently; extensionless paths are not
-part of the site's URL contract.
+## Production build
 
-The production origin for absolute discovery metadata is
-`https://utana.agentic.technologies`.
+`./scripts/build-public.sh` recreates `public/` from the sources in `src/` and
+`static/`. `public-files.txt` is the production allowlist: if a file is not
+listed there, it is not shipped. This keeps experiments, previews, repository
+metadata, and build tooling out of the deployed site.
 
-Preview and alternate-theme pages are not copied into the production artifact.
-The eight historical use-case aliases are also omitted rather than published as
-HTML redirects. The repository has no deployment-runtime redirect facility with
-which to guarantee portable HTTP 301 responses, so no HTTP aliases are retained.
-If a hosting platform is chosen later, backwards-compatible aliases can be added
-in that platform's redirect layer.
+## Deployment
 
-## Repository structure
+Production uses Nginx to serve the generated `public/` directory. Build and
+validate the artifact before publishing it; do not point Nginx at the repository
+checkout.
 
-- `src/pages/`: canonical HTML sources. Nested `blog/` and `use-cases/`
-  directories mirror their production URL paths. Historical use-case alias
-  stubs are retained here for reference but are not allowlisted.
-- `src/styles/`: canonical stylesheets copied to the artifact root.
-- `src/js/`: canonical browser JavaScript copied to the artifact root.
-- `src/experiments/`: preview pages, alternate themes, and their supporting
-  styles and scripts. These files can reference the reorganized source tree for
-  local review, but are never copied to production.
-- `static/`: assets and root-level static files copied without changing their
-  public paths, including icons, team images, `robots.txt`, and `sitemap.xml`.
-- `scripts/`: build and launch-validation tooling.
-- `deploy/`: Nginx and certificate-renewal configuration. Deployment reads
-  only the generated artifact.
-- `public-files.txt`: the authoritative list of paths that may appear under
-  `public/`; entries are public artifact paths, not repository source paths.
-- `public/`: generated, gitignored production output. Do not edit it directly.
+See [`deploy/README.md`](deploy/README.md) for the Ubuntu, HTTPS, and certificate
+renewal steps. The Nginx configurations are in [`deploy/nginx/`](deploy/nginx/).
 
-Canonical HTML keeps links in terms of the production URL layout. Build the
-site before previewing canonical pages so those references resolve exactly as
-they do after deployment.
+## Notes
 
-## Deploy
-
-Run `./scripts/build-public.sh`, then deploy or serve only the generated
-`public/` directory, with `public/index.html` at the site root. Do not configure
-the web server's document root to the repository root. Preview pages, repository
-metadata, unused assets, and build tooling are intentionally absent from the
-artifact.
-
-The production Ubuntu, Nginx, HTTPS, redirect, caching, error-page, and
-certificate-renewal procedure is documented in [`deploy/README.md`](deploy/README.md).
-
-## Contact
-
-The contact CTA opens the visitor's email application with a pre-filled subject addressed to `info@utana.agentic.technologies`. The visitor must write and send the email themselves. The address remains visible and copyable if no mail application is configured. The website has no submission backend or contact database.
-
-Google Fonts are loaded remotely with system-font fallbacks. Workflow articles describe proposed implementations, not measured customer results.
-
-## Maintenance decisions
-
-- Preview themes and their supporting styles/scripts are intentionally retained
-  under `src/experiments/` as repository-only design history. Historical alias
-  stubs remain under `src/pages/use-cases/`; the public-file allowlist excludes
-  both groups.
-- Team portraits include AVIF and JPEG widths used by responsive `picture`
-  sources. The social image and icon variants are referenced by page metadata.
-  No allowlisted asset is currently unreferenced, so none is removed.
-- Shared CSS selectors used by canonical pages, responsive states, scripted
-  reveal/menu states, and repository-only previews are retained. Static usage
-  alone cannot prove the responsive/scripted selectors dead, and launch review
-  found no cleanup worth the regression risk.
-- Structured data is deferred until the business can maintain accurate entity
-  and service facts. Existing canonical and social metadata remains the
-  supported discovery surface.
-- Explicit `.html` URLs remain the canonical policy. Extensionless URL cleanup
-  is deferred because it requires host-level redirects and would reopen the
-  established URL contract.
-
-## Local files
-
-The `.gitignore` excludes credentials, editor files, generated archives, and local research/editing notes.
+- Production uses explicit `.html` URLs, including `index.html`, and the
+  canonical origin is `https://utana.agentic.technologies`. Keep these URLs
+  stable unless redirects are added at the hosting layer.
+- `src/experiments/` is intentionally excluded from production.
+- Team portraits already include responsive AVIF and JPEG variants; keep both
+  formats when updating them.
+- The contact link opens the visitor's email application; there is no form
+  backend or contact database.
+- Google Fonts are loaded remotely, with system-font fallbacks.
